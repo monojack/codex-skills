@@ -20,29 +20,33 @@ Before implementation, sync the base branch according to the repository instruct
 1. Use the GitHub connector `search_issues` tool first.
 2. Search for open issues that are not pull requests and appear actionable. Prefer issues with labels such as `bug`, `enhancement`, `hardening`, `refactor`, `documentation`, `change-request`, `help wanted`, or repository-specific implementation labels.
 3. Avoid issues that require unclear product decisions, missing credentials, broad redesigns, external stakeholder input, or unsafe production changes.
-4. Pick one issue that can be completed in the current repository with focused changes and clear validation.
+4. Pick one issue that can be fully completed in the current repository with focused changes and clear validation.
 5. State the selected issue briefly before starting work.
+
+Do not select an issue if only part of it can reasonably be addressed. Every concrete requirement, acceptance criterion, bug, regression, and documented subtask in the selected issue must be resolved before opening the PR; never intentionally leave an issue partially fixed.
 
 ## Implementation Workflow
 
 1. Create a branch using the repository's branch convention; default to `codex/issue-<number>-<slug>`.
 2. Inspect the codebase before editing. For Next.js work, read the relevant local Next.js docs before coding when the repository requires it.
 3. Implement the root-cause fix. Do not add workarounds that hide product, test, cache, or environment problems.
-4. Add or update tests when the change affects behavior, fixes a bug, or prevents regression.
-5. Run the narrowest sufficient validation command, then broaden validation when shared behavior or user-facing flows are touched.
-6. If validation requires dependency install, network access, services, port binding, or other escalation, request escalation and run the command. Do not simulate validation results.
+4. Address the whole issue, not just the easiest or first visible symptom. If the issue contains multiple requested changes, complete all of them or stop and explain the blocker before creating a PR.
+5. Add or update tests when the change affects behavior, fixes a bug, or prevents regression.
+6. Run the narrowest sufficient validation command, then broaden validation when shared behavior or user-facing flows are touched.
+7. If validation requires dependency install, network access, services, port binding, or other escalation, request escalation and run the command. Do not simulate validation results.
 
 ## Commit And PR
 
 1. Review the diff and ensure unrelated user changes are not reverted.
 2. Stage only the intended files.
-3. Commit with a Conventional Commit message, using a scope when it is clear.
-4. Push the branch.
-5. Open a ready-for-review pull request, not a draft, with a concise body that includes:
+3. Commit with Conventional Commit messages, using a scope when it is clear. Use a single commit for small cohesive fixes, or split the work into multiple focused commits when that makes the issue easier to review.
+4. Before opening the PR, confirm the branch resolves the entire selected issue. Do not open a PR that knowingly leaves issue requirements unimplemented.
+5. Push the branch.
+6. Open a ready-for-review pull request, not a draft, with a concise body that includes:
    - selected issue reference
    - summary of changes
    - validation performed
-6. Request human reviewers when the issue, repository metadata, CODEOWNERS, or previous reviewer context clearly indicates them.
+7. Request human reviewers when the issue, repository metadata, CODEOWNERS, or previous reviewer context clearly indicates them.
 
 ## Copilot Review
 
