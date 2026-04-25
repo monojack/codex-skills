@@ -66,6 +66,7 @@ The heartbeat prompt must include:
 - initial requested reviewers, including Copilot when requested
 - current monitoring cycle number, starting at 1
 - instruction to inspect reviews, review threads, and PR timeline comments via the GitHub connector
+- instruction to track review thread IDs for actionable comments so addressed threads can be replied to and resolved
 - instruction to count completed checks for the current cycle from thread history
 - instruction to stop the heartbeat when monitoring is complete or before making code changes
 
@@ -82,6 +83,7 @@ On each heartbeat run:
 5. If Copilot says the PR is fine, leaves no comments, or only leaves non-actionable comments, count the check as clean.
 6. If 3 checks complete in the current cycle with no actionable comments, stop the heartbeat and report monitoring complete.
 7. If actionable comments exist, stop the heartbeat before editing code and address them in the active workspace.
+8. Preserve the review thread or comment identifiers for every actionable item so follow-up replies and thread resolution target the correct discussion.
 
 ## Addressing Review Feedback
 
@@ -92,9 +94,11 @@ When actionable feedback exists:
 3. Run validation relevant to the changes.
 4. Commit with a Conventional Commit message.
 5. Push to the same PR branch.
-6. Reply to resolved review threads when useful, especially for human reviewers.
-7. Request re-review from the initial actionable reviewers. Request Copilot re-review again with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` when Copilot provided actionable comments or when Copilot was part of the initial review loop.
-8. Create a fresh 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
+6. Reply to each addressed actionable review comment or thread with a concise note describing the fix, validation, or reason the change was intentionally not applied.
+7. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
+8. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
+9. Request re-review from the initial actionable reviewers. Request Copilot re-review again with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` when Copilot provided actionable comments or when Copilot was part of the initial review loop.
+10. Create a fresh 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
 
 Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
 
@@ -108,4 +112,4 @@ When the workflow completes, report:
 - PR URL
 - reviewers requested
 - validation commands and outcomes
-- monitoring result, including whether it ended cleanly, addressed review feedback, or stopped on a blocker
+- monitoring result, including whether it ended cleanly, addressed review feedback, replied to addressed comments, resolved review threads, or stopped on a blocker
