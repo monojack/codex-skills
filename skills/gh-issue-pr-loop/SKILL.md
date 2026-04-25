@@ -1,0 +1,111 @@
+---
+name: gh-issue-pr-loop
+description: "Use when Codex should run an end-to-end GitHub issue implementation loop: search GitHub issues, select an actionable issue, implement the fix, validate it, commit with a Conventional Commit, push a branch, open a ready-for-review pull request, request GitHub Copilot review, and monitor/address PR review comments with capped 5-minute heartbeat checks."
+---
+
+# GitHub Issue PR Loop
+
+## Overview
+
+Use this skill to turn a short request into a complete GitHub issue-to-PR workflow with review monitoring. Favor the GitHub connector for repository, issue, pull request, review, and comment operations; use narrow shell commands for local git, validation, and the officially documented Copilot review trigger.
+
+## Start Conditions
+
+Resolve the target repository from the user request or the local git remote. If multiple repositories or issue queues are plausible and choosing incorrectly would create work in the wrong place, ask one concise clarification.
+
+Before implementation, sync the base branch according to the repository instructions. If the repository requires starting from `main`, switch to `main`, run a fast-forward-only pull, and stop on any pull failure instead of creating a branch from stale state.
+
+## Issue Selection
+
+1. Use the GitHub connector `search_issues` tool first.
+2. Search for open issues that are not pull requests and appear actionable. Prefer issues with labels such as `bug`, `enhancement`, `hardening`, `refactor`, `documentation`, `change-request`, `help wanted`, or repository-specific implementation labels.
+3. Avoid issues that require unclear product decisions, missing credentials, broad redesigns, external stakeholder input, or unsafe production changes.
+4. Pick one issue that can be completed in the current repository with focused changes and clear validation.
+5. State the selected issue briefly before starting work.
+
+## Implementation Workflow
+
+1. Create a branch using the repository's branch convention; default to `codex/issue-<number>-<slug>`.
+2. Inspect the codebase before editing. For Next.js work, read the relevant local Next.js docs before coding when the repository requires it.
+3. Implement the root-cause fix. Do not add workarounds that hide product, test, cache, or environment problems.
+4. Add or update tests when the change affects behavior, fixes a bug, or prevents regression.
+5. Run the narrowest sufficient validation command, then broaden validation when shared behavior or user-facing flows are touched.
+6. If validation requires dependency install, network access, services, port binding, or other escalation, request escalation and run the command. Do not simulate validation results.
+
+## Commit And PR
+
+1. Review the diff and ensure unrelated user changes are not reverted.
+2. Stage only the intended files.
+3. Commit with a Conventional Commit message, using a scope when it is clear.
+4. Push the branch.
+5. Open a ready-for-review pull request, not a draft, with a concise body that includes:
+   - selected issue reference
+   - summary of changes
+   - validation performed
+6. Request human reviewers when the issue, repository metadata, CODEOWNERS, or previous reviewer context clearly indicates them.
+
+## Copilot Review
+
+Request GitHub Copilot review through the GitHub CLI because GitHub documents Copilot PR review with `gh` reviewer syntax.
+
+- When creating a PR with `gh`, include `--reviewer @copilot`.
+- For an existing PR, run `gh pr edit <PR-NUMBER> --add-reviewer @copilot`.
+- If the GitHub connector supports requesting Copilot as a reviewer in the current environment, the connector may be used, but verify the request succeeded.
+
+Do not use `@github-copilot` or a PR comment mention as a substitute for Copilot code review. A comment mention may trigger a different Copilot agent behavior instead of the PR review flow.
+
+## Heartbeat Monitoring
+
+After the PR is open and Copilot review is requested, create a Codex heartbeat automation attached to the current thread. The heartbeat must run every 5 minutes and be capped at 3 monitor checks for the current monitoring cycle.
+
+The heartbeat prompt must include:
+
+- repository full name
+- PR number and URL
+- branch name
+- initial requested reviewers, including Copilot when requested
+- current monitoring cycle number, starting at 1
+- instruction to inspect reviews, review threads, and PR timeline comments via the GitHub connector
+- instruction to count completed checks for the current cycle from thread history
+- instruction to stop the heartbeat when monitoring is complete or before making code changes
+
+Use a heartbeat, not a detached cron job, when continuing this thread. Resolve and update/delete an existing matching heartbeat instead of creating duplicates.
+
+## Monitor Check Logic
+
+On each heartbeat run:
+
+1. Fetch pull request reviews, review threads, and PR comments with the GitHub connector.
+2. Classify each new item as actionable, non-actionable, duplicate, already addressed, or blocked.
+3. Treat comments as actionable only when they request a concrete code, test, behavior, security, performance, accessibility, documentation, or release-note change.
+4. Treat praise, status updates, vague preferences, duplicate Copilot repeats, already-addressed suggestions, and questions answered by the PR body as non-actionable.
+5. If Copilot says the PR is fine, leaves no comments, or only leaves non-actionable comments, count the check as clean.
+6. If 3 checks complete in the current cycle with no actionable comments, stop the heartbeat and report monitoring complete.
+7. If actionable comments exist, stop the heartbeat before editing code and address them in the active workspace.
+
+## Addressing Review Feedback
+
+When actionable feedback exists:
+
+1. Summarize the actionable findings and the files likely affected.
+2. Implement reasonable changes directly. If a comment conflicts with project requirements or would degrade the solution, explain why it was not applied and reply on the PR when appropriate.
+3. Run validation relevant to the changes.
+4. Commit with a Conventional Commit message.
+5. Push to the same PR branch.
+6. Reply to resolved review threads when useful, especially for human reviewers.
+7. Request re-review from the initial actionable reviewers. Request Copilot re-review again with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` when Copilot provided actionable comments or when Copilot was part of the initial review loop.
+8. Create a fresh 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
+
+Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
+
+## Completion Report
+
+When the workflow completes, report:
+
+- issue selected
+- branch name
+- commit or commits created
+- PR URL
+- reviewers requested
+- validation commands and outcomes
+- monitoring result, including whether it ended cleanly, addressed review feedback, or stopped on a blocker
