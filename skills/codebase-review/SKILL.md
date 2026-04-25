@@ -25,6 +25,18 @@ Read official or primary documentation first for each review-relevant framework 
 
 In the review file, include a short "Documentation Consulted" section listing the sources or local docs used. If documentation could not be accessed, say so and separate confirmed findings from framework-idiom concerns that need verification.
 
+## Structured Review Cadence
+
+Use a progressive capture workflow so review evidence survives long sessions and context compaction:
+
+1. First analyze the codebase at a high level: identify the stack, architecture, key flows, risky surfaces, test strategy, and review plan.
+2. Create the review file immediately after the initial analysis, with placeholders for scope, documentation consulted, commands, findings, issue links, and residual risks.
+3. As soon as a finding is credible, append a concise draft finding to the review file with file paths, evidence, severity, and open questions. Do not wait until the entire codebase review is complete.
+4. Continue reviewing in passes. Expand, merge, downgrade, or remove draft findings as more evidence appears.
+5. Before opening GitHub issues, do one deduplication and evidence-quality pass over the accumulated findings.
+
+Prefer an imperfect but written draft over keeping findings only in conversation context. Mark uncertain findings as "Needs verification" until confirmed.
+
 ## Review Method
 
 1. Map the repository: manifests, package/workspace layout, application entry points, API routes, background jobs, database schema/migrations, shared libraries, tests, CI, deployment config, generated files, and documentation.
@@ -53,7 +65,7 @@ Do not open issues for vague preferences, speculative rewrites, or findings that
 
 ## Review File
 
-Create the `reviews/` folder if needed. Write one Markdown review file named with the current date and a short slug, for example `reviews/2026-04-25-codebase-review.md`.
+Create the `reviews/` folder if needed during the initial analysis phase. Write one Markdown review file named with the current date and a short slug, for example `reviews/2026-04-25-codebase-review.md`.
 
 The review file should contain:
 
