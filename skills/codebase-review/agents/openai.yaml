@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codebase Review"
+  short_description: "Thorough reviews with issue filing"
+  default_prompt: "Use $codebase-review to perform a very thorough whole-codebase review, write the findings under reviews/, and open GitHub issues for each actionable finding."
