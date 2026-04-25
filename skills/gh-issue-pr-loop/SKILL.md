@@ -15,6 +15,12 @@ Resolve the target repository from the user request or the local git remote. If 
 
 Before implementation, sync the base branch according to the repository instructions. If the repository requires starting from `main`, switch to `main`, run a fast-forward-only pull, and stop on any pull failure instead of creating a branch from stale state.
 
+## Workflow Autonomy
+
+Once this skill is invoked and the target repository is clear, follow the workflow end to end without asking for extra "go-ahead" confirmations between normal steps. Do not pause to ask whether to select an issue, create a branch, implement the fix, add tests, commit, push, open the PR, request review, or start monitoring when those actions are part of this skill's stated workflow.
+
+Ask the user only when a required decision cannot be inferred safely, the repository or issue target is ambiguous, credentials or external access are missing, the selected issue cannot be fully resolved, or proceeding would risk destructive or unrelated changes.
+
 ## Issue Selection
 
 1. Use the GitHub connector `search_issues` tool first.
