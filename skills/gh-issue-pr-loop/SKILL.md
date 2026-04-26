@@ -7,7 +7,7 @@ description: "Use when Codex should run an end-to-end GitHub issue implementatio
 
 ## Overview
 
-Use this skill to turn a short request into a complete GitHub issue-to-PR workflow with review monitoring. Favor the GitHub connector for repository, issue, pull request, review, and comment operations; use narrow shell commands for local git, validation, and the officially documented Copilot review trigger.
+Use this skill to turn a short request into a complete GitHub issue-to-PR workflow with review monitoring. Favor the GitHub connector for repository, issue, pull request, review, and comment operations; use narrow shell commands for local git, validation, and the officially documented Copilot review trigger. For Copilot review and re-review requests, prefer the `gh` CLI path first because connector responses may not expose or confirm Copilot reviewer state reliably.
 
 ## Start Conditions
 
@@ -60,7 +60,10 @@ Request GitHub Copilot review through the GitHub CLI because GitHub documents Co
 
 - When creating a PR with `gh`, include `--reviewer @copilot`.
 - For an existing PR, run `gh pr edit <PR-NUMBER> --add-reviewer @copilot`.
-- If the GitHub connector supports requesting Copilot as a reviewer in the current environment, the connector may be used, but verify the request succeeded.
+- After every Copilot review request or re-review request, verify the PR's reviewer state with a readback, such as `gh pr view <PR-NUMBER> --json reviewRequests,reviews` or the GitHub connector's pull request fields.
+- Treat `requested_reviewers: null`, empty review request fields, or missing Copilot reviewer state as unverified, not successful. In that case, retry once with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` if that was not already used, then read the PR state again.
+- If the request still cannot be verified, report it as an attempted Copilot review request and explain the observed readback. Do not claim Copilot review or re-review was requested unless the request is verified or the `gh` command succeeds and GitHub reports no additional reviewer state because Copilot has already reviewed the current head.
+- If the GitHub connector supports requesting Copilot as a reviewer in the current environment, use it only after the `gh` path is unavailable or blocked, and verify the request succeeded before reporting it as requested.
 
 Do not use `@github-copilot` or a PR comment mention as a substitute for Copilot code review. A comment mention may trigger a different Copilot agent behavior instead of the PR review flow.
 
@@ -107,7 +110,7 @@ When actionable feedback exists:
 6. Reply to each addressed actionable review comment or thread with a concise note describing the fix, validation, or reason the change was intentionally not applied.
 7. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
 8. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
-9. Request re-review from the initial actionable reviewers. Request Copilot re-review again with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` when Copilot provided actionable comments or when Copilot was part of the initial review loop.
+9. Request re-review from the initial actionable reviewers. Request Copilot re-review again with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` when Copilot provided actionable comments or when Copilot was part of the initial review loop. Verify the re-review request using the Copilot Review verification rules before restarting monitoring or reporting success.
 10. Create a fresh 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
 
 Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
@@ -120,6 +123,6 @@ When the workflow completes, report:
 - branch name
 - commit or commits created
 - PR URL
-- reviewers requested
+- reviewers requested, separating verified reviewer requests from attempts that could not be verified
 - validation commands and outcomes
 - monitoring result, including whether it ended cleanly, addressed review feedback, replied to addressed comments, resolved review threads, or stopped on a blocker
