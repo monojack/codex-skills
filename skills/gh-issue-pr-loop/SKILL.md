@@ -7,7 +7,7 @@ description: "Use when Codex should run an end-to-end GitHub issue implementatio
 
 ## Overview
 
-Use this skill to turn a short request into a complete GitHub issue-to-PR workflow with review monitoring. Favor the GitHub connector for repository, issue, pull request, review, and comment operations; use narrow shell commands for local git, validation, and the officially documented Copilot review trigger. For Copilot review and re-review requests, prefer the `gh` CLI path first because connector responses may not expose or confirm Copilot reviewer state reliably.
+Use this skill to turn a short request into a complete GitHub issue-to-PR workflow with review monitoring. Favor the GitHub connector for repository, issue, pull request, review, comment, and reviewer-request operations; use narrow shell commands for local git, validation, and fallback reviewer requests when connector operations are unavailable or cannot be verified.
 
 ## Start Conditions
 
@@ -56,14 +56,14 @@ Do not select an issue if only part of it can reasonably be addressed. Every con
 
 ## Copilot Review
 
-Request GitHub Copilot review through the GitHub CLI because GitHub documents Copilot PR review with `gh` reviewer syntax.
+Request GitHub Copilot review through the GitHub connector first when the connector exposes reviewer-request support for the current environment. Verify the connector request before treating it as successful. Use the GitHub CLI as the fallback path because GitHub documents Copilot PR review with `gh` reviewer syntax.
 
-- When creating a PR with `gh`, include `--reviewer @copilot`.
-- For an existing PR, run `gh pr edit <PR-NUMBER> --add-reviewer @copilot`.
+- When creating a PR through the connector, request Copilot review through the connector after the PR exists, then verify the request.
+- For an existing PR, request Copilot review through the connector first when available, then verify the request.
 - After every Copilot review request or re-review request, verify the PR's reviewer state with a readback, such as `gh pr view <PR-NUMBER> --json reviewRequests,reviews` or the GitHub connector's pull request fields.
-- Treat `requested_reviewers: null`, empty review request fields, or missing Copilot reviewer state as unverified, not successful. In that case, retry once with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` if that was not already used, then read the PR state again.
+- Treat `requested_reviewers: null`, empty review request fields, or missing Copilot reviewer state as unverified, not successful. In that case, fall back to `gh pr edit <PR-NUMBER> --add-reviewer @copilot`, then read the PR state again.
 - If the request still cannot be verified, report it as an attempted Copilot review request and explain the observed readback. Do not claim Copilot review or re-review was requested unless the request is verified or the `gh` command succeeds and GitHub reports no additional reviewer state because Copilot has already reviewed the current head.
-- If the GitHub connector supports requesting Copilot as a reviewer in the current environment, use it only after the `gh` path is unavailable or blocked, and verify the request succeeded before reporting it as requested.
+- If the connector is unavailable, blocked, or does not support Copilot reviewer requests in the current environment, use `gh pr edit <PR-NUMBER> --add-reviewer @copilot` as the fallback and verify the request succeeded before reporting it as requested.
 
 Do not use `@github-copilot` or a PR comment mention as a substitute for Copilot code review. A comment mention may trigger a different Copilot agent behavior instead of the PR review flow.
 
@@ -110,7 +110,7 @@ When actionable feedback exists:
 6. Reply to each addressed actionable review comment or thread with a concise note describing the fix, validation, or reason the change was intentionally not applied.
 7. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
 8. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
-9. Request re-review from the initial actionable reviewers. Request Copilot re-review again with `gh pr edit <PR-NUMBER> --add-reviewer @copilot` when Copilot provided actionable comments or when Copilot was part of the initial review loop. Verify the re-review request using the Copilot Review verification rules before restarting monitoring or reporting success.
+9. Request re-review from the initial actionable reviewers. Request Copilot re-review through the connector first when Copilot provided actionable comments or when Copilot was part of the initial review loop; fall back to `gh pr edit <PR-NUMBER> --add-reviewer @copilot` only if the connector path is unavailable, blocked, or cannot be verified. Verify the re-review request using the Copilot Review verification rules before restarting monitoring or reporting success.
 10. Create a fresh 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
 
 Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
