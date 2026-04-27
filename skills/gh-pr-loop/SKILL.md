@@ -1,45 +1,46 @@
 ---
 name: gh-pr-loop
-description: "Use when Codex should run only the existing GitHub pull request review loop for a prompt-provided issue number and pull request number: verify the known issue/PR context, create or refresh the monitoring heartbeat, inspect review feedback, address actionable comments, push follow-up commits, request re-review, and repeat until clean or blocked. This skill does not search for, select, assign, implement from scratch, or open issues or pull requests."
+description: "Use when Codex should run only the existing GitHub pull request review loop for a prompt-provided pull request number and optional issue number: verify the PR context, recreate the monitoring heartbeat for each cycle, inspect review feedback, address actionable comments, push follow-up commits, request re-review, and repeat until clean or blocked. This skill does not search for, select, assign, implement from scratch, or open issues or pull requests."
 ---
 
 # GitHub PR Loop
 
 ## Overview
 
-Use this skill for an existing pull request tied to a known issue. The user prompt must indicate the issue number and PR number. Favor the GitHub connector for repository, issue, pull request, review, comment, thread, and reviewer-request operations; use narrow shell commands for local git, validation, and fallback reviewer requests when connector operations are unavailable or cannot be verified.
+Use this skill for an existing pull request. The user prompt must indicate the PR number; an issue number is optional. Favor the GitHub connector for repository, pull request, review, comment, thread, reviewer-request, and optional issue operations; use narrow shell commands for local git, validation, and fallback reviewer requests when connector operations are unavailable or cannot be verified.
 
 This skill starts at the PR review loop. Do not search for issues, choose an issue, assign an issue, create an implementation branch, implement the issue from scratch, or open a new PR.
 
 ## Start Conditions
 
-Resolve the target repository from the user request or local git remote. If the repository, issue number, or PR number is missing or ambiguous, ask one concise clarification.
+Resolve the target repository from the user request or local git remote. If the repository or PR number is missing or ambiguous, ask one concise clarification. Do not ask for an issue number solely because it is absent.
 
-Fetch the issue and PR metadata before scheduling work. Confirm the PR is open and related to the provided issue through closing keywords, linked issues, body text, timeline cross-references, branch naming, or other clear repository context. If the PR is merged, closed, unrelated to the issue, or cannot be accessed, stop and report the blocker.
+Fetch the PR metadata before scheduling work. If the user provided an issue number, also fetch the issue metadata and confirm the PR is related to it through closing keywords, linked issues, body text, timeline cross-references, branch naming, or other clear repository context. If the user did not provide an issue number, use any linked issue context discoverable from the PR but proceed with PR-only monitoring when none is available. If the PR is merged, closed, unrelated to the provided issue, or cannot be accessed, stop and report the blocker.
 
-Once the repository, issue, and PR are clear, follow the workflow end to end without asking for extra "go-ahead" confirmations between normal monitoring, feedback-fix, commit, push, re-review, and heartbeat steps.
+Once the repository and PR are clear, follow the workflow end to end without asking for extra "go-ahead" confirmations between normal monitoring, feedback-fix, commit, push, re-review, and heartbeat steps.
 
 ## Automation First
 
-After the issue/PR metadata readback, create or refresh the Codex heartbeat automation before code inspection, validation, or feedback implementation. Use a heartbeat attached to the current thread, not a detached cron job, and resolve/update any existing matching heartbeat instead of creating duplicates.
+After the PR metadata readback, and issue metadata readback when an issue is provided or discovered, stop/delete any existing matching heartbeat for the same PR, then create a new Codex heartbeat automation for monitoring cycle 1 before code inspection, validation, or feedback implementation. Use a heartbeat attached to the current thread, not a detached cron job. Do not update an existing heartbeat in place for a new cycle; each monitoring cycle must have a newly created heartbeat with a fresh 3-check budget.
 
-The heartbeat must run every 5 minutes and be capped at 3 monitor checks for the current monitoring cycle. The first cycle starts at 1.
+The heartbeat must run every 5 minutes and be capped at 3 monitor checks for the current monitoring cycle. The first cycle starts at 1, and the 3-check cap applies only to that cycle.
 
 The heartbeat prompt must include:
 
 - repository full name
-- issue number and URL
+- issue number and URL when provided or discovered; otherwise state that no issue context is available
 - PR number and URL
 - PR branch name and current head SHA
 - initial requested reviewers and review status, including whether Copilot review is verified, already complete, missing, or attempted-but-unverified
 - current monitoring cycle number
+- instruction that the 3-check cap applies only to this cycle and resets when a later cycle creates a new heartbeat
 - instruction to inspect reviews, review threads, and PR timeline comments via the GitHub connector
 - instruction to request and verify Copilot review if it is missing and no user or repository instruction opts out
 - instruction to track review thread IDs for actionable comments so addressed threads can be replied to and resolved
 - instruction to count completed checks for the current cycle from thread history
-- instruction to stop the heartbeat when monitoring is complete or before making code changes
+- instruction to stop/delete the heartbeat when monitoring is complete or before making code changes
 
-After the heartbeat is established, perform an immediate monitor check in the active thread unless the user explicitly asked only to schedule monitoring.
+After the heartbeat is established, perform an immediate monitor check in the active thread unless the user explicitly asked only to schedule monitoring. Count this immediate check as check 1 for the current cycle.
 
 ## Copilot Review
 
@@ -62,9 +63,10 @@ On each monitor check:
 3. Treat comments as actionable only when they request a concrete code, test, behavior, security, performance, accessibility, documentation, or release-note change.
 4. Treat praise, status updates, vague preferences, duplicate Copilot repeats, already-addressed suggestions, and questions answered by the PR body as non-actionable.
 5. If Copilot says the PR is fine, leaves no comments, or only leaves non-actionable comments, count the check as clean.
-6. If 3 checks complete in the current cycle with no actionable comments, stop the heartbeat and report monitoring complete.
-7. If actionable comments exist, stop the heartbeat before editing code and address them in the active workspace.
-8. Preserve the review thread or comment identifiers for every actionable item so follow-up replies and thread resolution target the correct discussion.
+6. Count only checks from the current monitoring cycle toward the 3-check cap; never count checks from prior cycles.
+7. If 3 checks complete in the current cycle with no actionable comments, stop/delete the current heartbeat and report monitoring complete for that cycle.
+8. If actionable comments exist, stop/delete the current heartbeat before editing code and address them in the active workspace.
+9. Preserve the review thread or comment identifiers for every actionable item so follow-up replies and thread resolution target the correct discussion.
 
 ## Addressing Review Feedback
 
@@ -82,7 +84,7 @@ When actionable feedback exists:
 10. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
 11. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
 12. Request re-review from the initial actionable reviewers. Request Copilot re-review through the connector first when Copilot provided actionable comments or when Copilot was part of the initial review loop; fall back to `gh pr edit <PR-NUMBER> --add-reviewer @copilot` only if the connector path is unavailable, blocked, or cannot be verified. Verify the re-review request using the Copilot Review verification rules before restarting monitoring or reporting success.
-13. Create or refresh a 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
+13. Stop/delete the current heartbeat if it still exists, then create a new 5-minute heartbeat for the next monitoring cycle with the cycle number incremented and its 3-check budget reset to zero. Do not reuse or update the previous cycle's heartbeat.
 
 Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
 
@@ -90,9 +92,9 @@ Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fin
 
 When the workflow completes, report:
 
-- issue and PR monitored
+- PR monitored, and issue monitored when provided or discovered
 - branch name
 - commit or commits created, if any
 - reviewers requested, separating verified reviewer requests from attempts that could not be verified
 - validation commands and outcomes, if code changed
-- monitoring result, including whether it ended cleanly, addressed review feedback, replied to addressed comments, resolved review threads, refreshed the heartbeat, or stopped on a blocker
+- monitoring result, including whether it ended cleanly, addressed review feedback, replied to addressed comments, resolved review threads, recreated the heartbeat for a new cycle, or stopped on a blocker

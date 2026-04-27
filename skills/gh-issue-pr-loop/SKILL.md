@@ -78,7 +78,7 @@ Do not use `@github-copilot` or a PR comment mention as a substitute for Copilot
 
 ## Heartbeat Monitoring
 
-After the PR is open and Copilot review is requested, create a Codex heartbeat automation attached to the current thread. The heartbeat must run every 5 minutes and be capped at 3 monitor checks for the current monitoring cycle.
+After the PR is open and Copilot review is requested, create a new Codex heartbeat automation attached to the current thread for monitoring cycle 1. The heartbeat must run every 5 minutes and be capped at 3 monitor checks for that cycle.
 
 The heartbeat prompt must include:
 
@@ -87,12 +87,13 @@ The heartbeat prompt must include:
 - branch name
 - initial requested reviewers, including Copilot when requested
 - current monitoring cycle number, starting at 1
+- instruction that the 3-check cap applies only to this cycle and resets when a later cycle creates a new heartbeat
 - instruction to inspect reviews, review threads, and PR timeline comments via the GitHub connector
 - instruction to track review thread IDs for actionable comments so addressed threads can be replied to and resolved
 - instruction to count completed checks for the current cycle from thread history
-- instruction to stop the heartbeat when monitoring is complete or before making code changes
+- instruction to stop/delete the heartbeat when monitoring is complete or before making code changes
 
-Use a heartbeat, not a detached cron job, when continuing this thread. Resolve and update/delete an existing matching heartbeat instead of creating duplicates.
+Use a heartbeat, not a detached cron job, when continuing this thread. Before creating a heartbeat for a cycle, stop/delete any existing matching heartbeat for the same PR. Do not update an existing heartbeat in place for a new cycle; each monitoring cycle must have a newly created heartbeat with a fresh 3-check budget.
 
 ## Monitor Check Logic
 
@@ -103,9 +104,10 @@ On each heartbeat run:
 3. Treat comments as actionable only when they request a concrete code, test, behavior, security, performance, accessibility, documentation, or release-note change.
 4. Treat praise, status updates, vague preferences, duplicate Copilot repeats, already-addressed suggestions, and questions answered by the PR body as non-actionable.
 5. If Copilot says the PR is fine, leaves no comments, or only leaves non-actionable comments, count the check as clean.
-6. If 3 checks complete in the current cycle with no actionable comments, stop the heartbeat and report monitoring complete.
-7. If actionable comments exist, stop the heartbeat before editing code and address them in the active workspace.
-8. Preserve the review thread or comment identifiers for every actionable item so follow-up replies and thread resolution target the correct discussion.
+6. Count only checks from the current monitoring cycle toward the 3-check cap; never count checks from prior cycles.
+7. If 3 checks complete in the current cycle with no actionable comments, stop/delete the current heartbeat and report monitoring complete for that cycle.
+8. If actionable comments exist, stop/delete the current heartbeat before editing code and address them in the active workspace.
+9. Preserve the review thread or comment identifiers for every actionable item so follow-up replies and thread resolution target the correct discussion.
 
 ## Addressing Review Feedback
 
@@ -120,7 +122,7 @@ When actionable feedback exists:
 7. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
 8. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
 9. Request re-review from the initial actionable reviewers. Request Copilot re-review through the connector first when Copilot provided actionable comments or when Copilot was part of the initial review loop; fall back to `gh pr edit <PR-NUMBER> --add-reviewer @copilot` only if the connector path is unavailable, blocked, or cannot be verified. Verify the re-review request using the Copilot Review verification rules before restarting monitoring or reporting success.
-10. Create a fresh 5-minute heartbeat capped at 3 checks for the next monitoring cycle.
+10. Stop/delete the current heartbeat if it still exists, then create a new 5-minute heartbeat for the next monitoring cycle with the cycle number incremented and its 3-check budget reset to zero. Do not reuse or update the previous cycle's heartbeat.
 
 Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
 
@@ -134,4 +136,4 @@ When the workflow completes, report:
 - PR URL
 - reviewers requested, separating verified reviewer requests from attempts that could not be verified
 - validation commands and outcomes
-- monitoring result, including whether it ended cleanly, addressed review feedback, replied to addressed comments, resolved review threads, or stopped on a blocker
+- monitoring result, including whether it ended cleanly, addressed review feedback, replied to addressed comments, resolved review threads, recreated the heartbeat for a new cycle, or stopped on a blocker
