@@ -1,4 +1,4 @@
 interface:
   display_name: "GitHub Issue PR Loop"
   short_description: "Fix issues through PR review loops"
-  default_prompt: "Use $gh-issue-pr-loop to pick an actionable GitHub issue, fully address every requirement, and follow the workflow through PR review monitoring without asking for extra go-ahead confirmations."
+  default_prompt: "Use $gh-issue-pr-loop to pick an unassigned actionable GitHub issue with no open PR, assign it before implementation, fully address every requirement, and follow the workflow through PR review monitoring without asking for extra go-ahead confirmations."

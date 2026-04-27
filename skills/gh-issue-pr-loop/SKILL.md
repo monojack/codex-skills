@@ -24,16 +24,24 @@ Ask the user only when a required decision cannot be inferred safely, the reposi
 ## Issue Selection
 
 1. Use the GitHub connector `search_issues` tool first.
-2. Search for open issues that are not pull requests and appear actionable. Prefer issues with labels such as `bug`, `enhancement`, `hardening`, `refactor`, `documentation`, `change-request`, `help wanted`, or repository-specific implementation labels.
-3. Avoid issues that require unclear product decisions, missing credentials, broad redesigns, external stakeholder input, or unsafe production changes.
-4. Pick one issue that can be fully completed in the current repository with focused changes and clear validation.
-5. State the selected issue briefly before starting work.
+2. Search for open, unassigned issues that are not pull requests and appear actionable. Prefer issues with labels such as `bug`, `enhancement`, `hardening`, `refactor`, `documentation`, `change-request`, `help wanted`, or repository-specific implementation labels.
+3. Do not select issues that already have any assignee.
+4. Do not select issues with an open pull request that references, links, or claims to close/fix/resolve the issue. Verify candidate issue metadata, linked pull requests, and timeline or cross-reference context when search results are ambiguous.
+5. Avoid issues that require unclear product decisions, missing credentials, broad redesigns, external stakeholder input, or unsafe production changes.
+6. Pick one issue that can be fully completed in the current repository with focused changes and clear validation.
+7. State the selected issue briefly before starting work.
 
 Do not select an issue if only part of it can reasonably be addressed. Every concrete requirement, acceptance criterion, bug, regression, and documented subtask in the selected issue must be resolved before opening the PR; never intentionally leave an issue partially fixed.
 
+## Issue Claiming
+
+After selecting an issue and before any branch creation, code inspection, or implementation work, assign the issue to the authenticated GitHub user running the workflow. Prefer the GitHub connector for assignment; use `gh` only when connector support is missing.
+
+If assignment fails, the issue becomes assigned to someone else, or an open PR appears for the issue before implementation starts, stop and select a different eligible issue or ask the user how to proceed.
+
 ## Implementation Workflow
 
-1. Create a branch using the repository's branch convention; default to `codex/issue-<number>-<slug>`.
+1. Proceed only after Issue Claiming succeeds, then create a branch using the repository's branch convention; default to `codex/issue-<number>-<slug>`.
 2. Inspect the codebase before editing. For Next.js work, read the relevant local Next.js docs before coding when the repository requires it.
 3. Implement the root-cause fix. Do not add workarounds that hide product, test, cache, or environment problems.
 4. Address the whole issue, not just the easiest or first visible symptom. If the issue contains multiple requested changes, complete all of them or stop and explain the blocker before creating a PR.
@@ -44,15 +52,16 @@ Do not select an issue if only part of it can reasonably be addressed. Every con
 ## Commit And PR
 
 1. Review the diff and ensure unrelated user changes are not reverted.
-2. Stage only the intended files.
-3. Commit with Conventional Commit messages, using a scope when it is clear. Use a single commit for small cohesive fixes, or split the work into multiple focused commits when that makes the issue easier to review.
-4. Before opening the PR, confirm the branch resolves the entire selected issue. Do not open a PR that knowingly leaves issue requirements unimplemented.
-5. Push the branch.
-6. Open a ready-for-review pull request, not a draft, with a concise body that includes:
+2. Check repository instructions for commit message and PR title conventions, such as CONTRIBUTING files, PR templates, or project docs.
+3. Stage only the intended files.
+4. Commit with the project's required message convention. If no project instructions exist, use Conventional Commit messages, using a scope when it is clear. Use a single commit for small cohesive fixes, or split the work into multiple focused commits when that makes the issue easier to review.
+5. Before opening the PR, confirm the branch resolves the entire selected issue. Do not open a PR that knowingly leaves issue requirements unimplemented.
+6. Push the branch.
+7. Open a ready-for-review pull request, not a draft. Set the PR title according to the same project commit-message convention so a squash-and-merge commit subject is already correct; if no project instructions exist, use Conventional Commit format. Include a concise body with:
    - selected issue reference
    - summary of changes
    - validation performed
-7. Request human reviewers when the issue, repository metadata, CODEOWNERS, or previous reviewer context clearly indicates them.
+8. Request human reviewers when the issue, repository metadata, CODEOWNERS, or previous reviewer context clearly indicates them.
 
 ## Copilot Review
 
