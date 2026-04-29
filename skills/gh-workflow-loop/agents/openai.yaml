@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub Workflow Loop"
+  short_description: "Issue and PR review workflow loops"
+  default_prompt: "Use $gh-workflow-loop to either implement a GitHub issue through a ready PR or handle an existing PR's reviews, then request review and monitor feedback until clean or blocked."

@@ -116,7 +116,7 @@ When actionable feedback exists:
 1. Summarize the actionable findings and the files likely affected.
 2. Implement reasonable changes directly. If a comment conflicts with project requirements or would degrade the solution, explain why it was not applied and reply on the PR when appropriate.
 3. Run validation relevant to the changes.
-4. Commit with a Conventional Commit message.
+4. Commit with the project's required message convention. If no project instructions exist, use Conventional Commit format.
 5. Push to the same PR branch.
 6. Reply to each addressed actionable review comment or thread with a concise note describing the fix, validation, or reason the change was intentionally not applied.
 7. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.

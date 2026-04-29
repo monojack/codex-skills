@@ -1,6 +1,6 @@
 ---
 name: gh-pr-loop
-description: "Use when Codex should run only the existing GitHub pull request review loop for a prompt-provided pull request number and optional issue number: verify the PR context, inspect existing reviews, review threads, and comments before the first heartbeat, address actionable feedback, recreate the monitoring heartbeat only when no actionable feedback is pending, push follow-up commits, request re-review, and repeat until clean or blocked. This skill does not search for, select, assign, implement from scratch, or open issues or pull requests."
+description: "Use when Codex should run only the existing GitHub pull request review loop for a prompt-provided pull request number and optional issue number: verify the PR context, inspect existing reviews, review threads, and comments before the first heartbeat, address actionable feedback, recheck for new feedback before every push, push only when clean, request re-review, recreate the monitoring heartbeat, and repeat until clean or blocked. This skill does not search for, select, assign, implement from scratch, or open issues or pull requests."
 ---
 
 # GitHub PR Loop
@@ -72,6 +72,15 @@ On each monitor check:
 8. If actionable comments exist, stop/delete the current heartbeat before editing code and address them in the active workspace.
 9. Preserve the review thread or comment identifiers for every actionable item so follow-up replies and thread resolution target the correct discussion.
 
+## Pre-Push Review Gate
+
+Before every push that contains review-feedback fixes:
+
+1. After local fixes are validated and the commit or commits are prepared, but before `git push`, fetch the latest PR reviews, review threads, PR comments, timeline comments, and current head SHA.
+2. Classify any new or still-unaddressed items with the Monitor Check Logic. Do not count this pre-push gate toward any heartbeat cycle's 3-check cap.
+3. If new actionable feedback exists, do not push. Preserve the thread or comment IDs, implement the additional feedback locally, rerun relevant validation, update the prepared commit or create an additional focused commit according to repository convention, and repeat this gate.
+4. Push to the same PR branch only after the recheck finds no new actionable feedback.
+
 ## Addressing Review Feedback
 
 When actionable feedback exists:
@@ -83,7 +92,7 @@ When actionable feedback exists:
 5. Run validation relevant to the changes.
 6. Check repository instructions for commit message and PR title conventions, such as CONTRIBUTING files, PR templates, or project docs. Commit follow-up changes with the project's required message convention; if no project instructions exist, use Conventional Commit format.
 7. If the existing PR title clearly violates the repository's squash-merge title convention and updating it is safe, update the title to match the same convention.
-8. Push to the same PR branch.
+8. Use the Pre-Push Review Gate before pushing. Do not push while newly fetched actionable feedback remains unaddressed.
 9. Reply to each addressed actionable review comment or thread with a concise note describing the fix, validation, or reason the change was intentionally not applied.
 10. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
 11. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
