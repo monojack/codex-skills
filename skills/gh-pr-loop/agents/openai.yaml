@@ -1,4 +1,4 @@
 interface:
   display_name: "GitHub PR Loop"
   short_description: "Monitor and address PR reviews"
-  default_prompt: "Use $gh-pr-loop with the provided PR number and optional issue number to recreate the review-monitoring heartbeat first, then monitor reviews, address actionable feedback, push follow-up commits, request re-review, and repeat until clean or blocked."
+  default_prompt: "Use $gh-pr-loop with the provided PR number and optional issue number to inspect existing PR reviews, review threads, and comments before creating the first heartbeat; address actionable feedback first, then create the monitoring heartbeat, push follow-up commits, request re-review, and repeat until clean or blocked."

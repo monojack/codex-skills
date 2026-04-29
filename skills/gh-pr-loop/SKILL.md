@@ -1,6 +1,6 @@
 ---
 name: gh-pr-loop
-description: "Use when Codex should run only the existing GitHub pull request review loop for a prompt-provided pull request number and optional issue number: verify the PR context, recreate the monitoring heartbeat for each cycle, inspect review feedback, address actionable comments, push follow-up commits, request re-review, and repeat until clean or blocked. This skill does not search for, select, assign, implement from scratch, or open issues or pull requests."
+description: "Use when Codex should run only the existing GitHub pull request review loop for a prompt-provided pull request number and optional issue number: verify the PR context, inspect existing reviews, review threads, and comments before the first heartbeat, address actionable feedback, recreate the monitoring heartbeat only when no actionable feedback is pending, push follow-up commits, request re-review, and repeat until clean or blocked. This skill does not search for, select, assign, implement from scratch, or open issues or pull requests."
 ---
 
 # GitHub PR Loop
@@ -17,11 +17,15 @@ Resolve the target repository from the user request or local git remote. If the 
 
 Fetch the PR metadata before scheduling work. If the user provided an issue number, also fetch the issue metadata and confirm the PR is related to it through closing keywords, linked issues, body text, timeline cross-references, branch naming, or other clear repository context. If the user did not provide an issue number, use any linked issue context discoverable from the PR but proceed with PR-only monitoring when none is available. If the PR is merged, closed, unrelated to the provided issue, or cannot be accessed, stop and report the blocker.
 
+Before creating the first heartbeat, fetch the current PR review state: reviews, open review threads, unresolved or unaddressed review comments, PR timeline comments, requested reviewers, and Copilot review status. Classify the existing review items with the Monitor Check Logic. If actionable feedback already exists, do not create a heartbeat yet; preserve the relevant thread or comment IDs and go directly to Addressing Review Feedback.
+
 Once the repository and PR are clear, follow the workflow end to end without asking for extra "go-ahead" confirmations between normal monitoring, feedback-fix, commit, push, re-review, and heartbeat steps.
 
-## Automation First
+## Triage Before Automation
 
-After the PR metadata readback, and issue metadata readback when an issue is provided or discovered, stop/delete any existing matching heartbeat for the same PR, then create a new Codex heartbeat automation for monitoring cycle 1 before code inspection, validation, or feedback implementation. Use a heartbeat attached to the current thread, not a detached cron job. Do not update an existing heartbeat in place for a new cycle; each monitoring cycle must have a newly created heartbeat with a fresh 3-check budget.
+Only create the first Codex heartbeat automation after the initial PR review-state triage finds no actionable feedback already pending, or after initially pending feedback has been addressed, pushed, replied to, resolved as appropriate, and re-review has been requested. Stop/delete any existing matching heartbeat for the same PR before creating the new heartbeat. Use a heartbeat attached to the current thread, not a detached cron job. Do not update an existing heartbeat in place for a new cycle; each monitoring cycle must have a newly created heartbeat with a fresh 3-check budget.
+
+When the workflow reaches its first clean monitoring phase, create the heartbeat as monitoring cycle 1. If the first PR triage found actionable feedback, the first heartbeat still starts at cycle 1 after that feedback is handled; do not count the pre-heartbeat triage as a monitor check.
 
 The heartbeat must run every 5 minutes and be capped at 3 monitor checks for the current monitoring cycle. The first cycle starts at 1, and the 3-check cap applies only to that cycle.
 
@@ -40,7 +44,7 @@ The heartbeat prompt must include:
 - instruction to count completed checks for the current cycle from thread history
 - instruction to stop/delete the heartbeat when monitoring is complete or before making code changes
 
-After the heartbeat is established, perform an immediate monitor check in the active thread unless the user explicitly asked only to schedule monitoring. Count this immediate check as check 1 for the current cycle.
+After the heartbeat is established, perform an immediate monitor check in the active thread unless the user explicitly asked only to schedule monitoring. Count this immediate post-heartbeat check as check 1 for the current cycle.
 
 ## Copilot Review
 
@@ -84,7 +88,7 @@ When actionable feedback exists:
 10. Mark each addressed review thread as resolved after the fix is pushed. Prefer the GitHub connector when it exposes thread resolution; otherwise use the narrowest available GitHub GraphQL mutation, such as `resolveReviewThread`, against the captured review thread ID.
 11. Do not resolve blocked, disputed, duplicate, or intentionally-unapplied comments unless the reviewer explicitly accepts the explanation or the thread is otherwise clearly resolved.
 12. Request re-review from the initial actionable reviewers. Request Copilot re-review through the connector first when Copilot provided actionable comments or when Copilot was part of the initial review loop; fall back to `gh pr edit <PR-NUMBER> --add-reviewer @copilot` only if the connector path is unavailable, blocked, or cannot be verified. Verify the re-review request using the Copilot Review verification rules before restarting monitoring or reporting success.
-13. Stop/delete the current heartbeat if it still exists, then create a new 5-minute heartbeat for the next monitoring cycle with the cycle number incremented and its 3-check budget reset to zero. Do not reuse or update the previous cycle's heartbeat.
+13. Stop/delete the current heartbeat if it still exists, then create a new 5-minute heartbeat for the next monitoring cycle with its 3-check budget reset to zero. If no heartbeat has been created yet because the workflow started with pre-existing actionable feedback, create monitoring cycle 1 after the feedback is handled; otherwise increment the prior cycle number. Do not reuse or update the previous cycle's heartbeat.
 
 Repeat the monitor/address/re-review cycle until Copilot indicates the PR is fine, no actionable comments remain after the capped checks, the PR is merged/closed, or a blocker requires user input.
 
